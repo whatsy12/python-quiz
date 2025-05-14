@@ -1,3 +1,4 @@
+// server.js - Node.js backend for Python Quiz with login system
 const express = require('express');
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
@@ -331,3 +332,28 @@ res.sendFile(path.join(__dirname, 'public', 'index.html'));
 app.get('/register.html', (req, res) => {
 res.set('Content-Type', 'text/html; charset=UTF-8');
 res.sendFile(path.join(__dirname, 'public', 'register.html'));
+});
+
+app.get('/quiz.html', (req, res) => {
+res.set('Content-Type', 'text/html; charset=UTF-8');
+res.sendFile(path.join(__dirname, 'public', 'quiz.html'));
+});
+
+// Catch all route (keep this last)
+app.get('*', (req, res) => {
+// First check if the requested file exists in public
+const requestedPath = path.join(__dirname, 'public', req.path);
+
+if (fs.existsSync(requestedPath) && fs.statSync(requestedPath).isFile()) {
+res.sendFile(requestedPath);
+} else {
+// Fall back to index.html
+res.set('Content-Type', 'text/html; charset=UTF-8');
+res.sendFile(path.join(__dirname, 'public', 'index.html'));
+}
+});
+
+// Start server
+app.listen(port, () => {
+console.log(`Server running on port ${port}`);
+});
