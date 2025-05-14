@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python Quiz - Register</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap');
+
+        :root {
+            --primary: #58cc02;
+            --primary-hover: #46a302;
+            --secondary: #fff;
+            --wrong: #ff4b4b;
+            --correct: #58cc02;
+            --neutral: #e5e5e5;
+            --text: #3c3c3c;
+            --blue: #1cb0f6;
+            --hearts: #ff7272;
+            --xp: #ffc800;
+            --light-bg: #f7f7f7;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Nunito', sans-serif;
+            background: var(--light-bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            transition: background 0.5s ease;
+        }
+
+        .logo {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .logo h1 {
+            color: var(--blue);
+            font-size: 2.5rem;
+            margin-bottom: 5px;
+        }
+
+        .logo p {
+            color: var(--text);
+            font-size: 1.1rem;
+        }
+
+        .container {
+            background-color: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            width: 400px;
+            max-width: 100%;
+            padding: 25px;
+        }
+
+        h2 {
+            text-align: center;
+            color: var(--text);
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: var(--text);
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid var(--neutral);
+            border-radius: 12px;
+            font-size: 1rem;
+            font-family: 'Nunito', sans-serif;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus,
+        input[type="email"]:focus,
+        input[type="password"]:focus {
+            border-color: var(--blue);
+            outline: none;
+        }
+
+        .btn {
+            background-color: var(--primary);
+            color: white;
+            padding: 12px 15px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 1rem;
+            width: 100%;
+            transition: all 0.2s ease;
+            font-family: 'Nunito', sans-serif;
+            box-shadow: 0 4px 0 var(--primary-hover);
+        }
+
+        .btn:hover {
+            background-color: var(--primary-hover);
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 0 0 var(--primary-hover);
+        }
+
+        .message {
+            margin: 15px 0;
+            padding: 10px;
+            border-radius: 10px;
+            font-weight: 600;
+            display: none;
+        }
+
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .link {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 0.9rem;
+        }
+
+        .link a {
+            color: var(--blue);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .link a:hover {
+            text-decoration: underline;
+        }
+
+        .benefits {
+            margin-top: 30px;
+            background-color: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            width: 400px;
+            max-width: 100%;
+            padding: 25px;
+        }
+
+        .benefits h3 {
+            text-align: center;
+            color: var(--text);
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+
+        .benefit-list {
+            list-style-type: none;
+        }
+
+        .benefit-list li {
+            padding: 8px 0;
+            display: flex;
+            align-items: center;
+        }
+
+        .benefit-list li:before {
+            content: "✓";
+            color: var(--correct);
+            font-weight: bold;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="logo">
+        <h1>Python Quiz</h1>
+        <p>Test your Python knowledge with interactive quizzes</p>
+    </div>
+
+    <div class="container">
+        <h2>Create Account</h2>
+        <div id="message" class="message"></div>
+        <form id="registerForm">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            <div class="form-group">
+                <label for="email">Email (optional)</label>
+                <input type="email" id="email" name="email">
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <div class="form-group">
+                <label for="confirmPassword">Confirm Password</label>
+                <input type="password" id="confirmPassword" name="confirmPassword" required>
+            </div>
+            <button type="submit" class="btn">Create Account</button>
+        </form>
+        <div class="link">
+            <p>Already have an account? <a href="index.html">Login</a></p>
+        </div>
+    </div>
+
+    <div class="benefits">
+        <h3>Why Join Python Quiz?</h3>
+        <ul class="benefit-list">
+            <li>Practice Python at your own pace</li>
+            <li>Track your progress over time</li>
+            <li>Learn from multiple difficulty levels</li>
+            <li>Test your knowledge on various Python topics</li>
+            <li>Compare your scores with previous attempts</li>
+        </ul>
+    </div>
+
+    <script>
+        document.getElementById('registerForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const messageElement = document.getElementById('message');
+            
+            // Simple validation
+            if (password !== confirmPassword) {
+                messageElement.textContent = 'Passwords do not match';
+                messageElement.className = 'message error';
+                messageElement.style.display = 'block';
+                return;
+            }
+            
+            if (password.length < 6) {
+                messageElement.textContent = 'Password must be at least 6 characters';
+                messageElement.className = 'message error';
+                messageElement.style.display = 'block';
+                return;
+            }
+            
+            // Send registration request to server
+            fetch('/api/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ username, email, password }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    messageElement.textContent = 'Registration successful! Redirecting to login...';
+                    messageElement.className = 'message success';
+                    messageElement.style.display = 'block';
+                    
+                    // Redirect to login page after successful registration
+                    setTimeout(() => {
+                        window.location.href = '/index.html';
+                    }, 2000);
+                } else {
+                    messageElement.textContent = data.message || 'Registration failed';
+                    messageElement.className = 'message error';
+                    messageElement.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                messageElement.textContent = 'An error occurred. Please try again.';
+                messageElement.className = 'message error';
+                messageElement.style.display = 'block';
+            });
+        });
+    </script>
+</body>
+</html>
