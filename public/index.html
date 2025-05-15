@@ -1,5 +1,16 @@
 <!DOCTYPE html>
-// DOM Elements
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python Quiz App</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Main content would go here -->
+    
+    <script>
+        // DOM Elements
         const notLoggedInEl = document.getElementById('not-logged-in');
         const quizAppEl = document.getElementById('quiz-app');
         const selectionScreen = document.getElementById('selection-screen');
@@ -411,6 +422,7 @@
                 const btn = document.createElement('button');
                 btn.className = 'option';
                 btn.textContent = option;
+                btn.dataset.answer = option; // Store original answer for comparison
 
                 btn.addEventListener('click', () => {
                     if (questionsAnswered) return; // Prevent multiple answers
@@ -442,7 +454,7 @@
 
                         // Show correct answer
                         allButtons.forEach(b => {
-                            if (b.textContent === question.answer) {
+                            if (b.dataset.answer === question.answer) { // Use dataset instead of textContent
                                 b.classList.add('correct');
                                 b.innerHTML += '<span class="check">✓</span>';
                             }
