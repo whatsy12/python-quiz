@@ -328,6 +328,10 @@ app.get('/', (req, res) => {
 res.set('Content-Type', 'text/html; charset=UTF-8');
 res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+app.get('/login.html', (req, res) => {
+  res.set('Content-Type', 'text/html; charset=UTF-8');
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
 
 app.get('/register.html', (req, res) => {
 res.set('Content-Type', 'text/html; charset=UTF-8');
