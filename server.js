@@ -1,690 +1,653 @@
-// server.js - Node.js backend for Python Quiz with login system
-const express = require('express');
-const { Pool } = require('pg');
-const bcrypt = require('bcrypt');
-const bodyParser = require('body-parser');
-const path = require('path');
-const fs = require('fs');
-const crypto = require('crypto'); // For generating secure tokens
-const nodemailer = require('nodemailer'); // For sending emails
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Python Quiz - Leaderboard</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap');
 
-// Create Express app
-const app = express();
-const port = process.env.PORT || 3000;
-
-// Debug info
-console.log('Starting server...');
-console.log('Current directory:', __dirname);
-console.log('Files in current directory:', fs.readdirSync(__dirname));
-
-// Check if public directory exists
-const publicPath = path.join(__dirname, 'public');
-console.log('Public directory path:', publicPath);
-console.log('Public directory exists:', fs.existsSync(publicPath));
-
-// List files in public directory if it exists
-if (fs.existsSync(publicPath)) {
-console.log('Files in public directory:', fs.readdirSync(publicPath));
+:root {
+--primary: #58cc02;
+--primary-hover: #46a302;
+--secondary: #fff;
+--wrong: #ff4b4b;
+--correct: #58cc02;
+--neutral: #e5e5e5;
+--text: #3c3c3c;
+--blue: #1cb0f6;
+--hearts: #ff7272;
+--xp: #ffc800;
+--light-bg: #f7f7f7;
+--gold: #FFD700;
+--silver: #C0C0C0;
+--bronze: #CD7F32;
 }
 
-// Middleware
-app.use(bodyParser.json());
+* {
+box-sizing: border-box;
+margin: 0;
+padding: 0;
+}
 
-// Set correct content types for all responses
-app.use((req, res, next) => {
-// Log all requests
-console.log('Request for:', req.url);
+body {
+font-family: 'Nunito', sans-serif;
+background: var(--light-bg);
+color: var(--text);
+display: flex;
+flex-direction: column;
+align-items: center;
+min-height: 100vh;
+margin: 0;
+padding: 20px;
+transition: background 0.5s ease;
+}
 
-// Set default headers
-res.setHeader('X-Content-Type-Options', 'nosniff');
-next();
-});
+.logo {
+margin-bottom: 20px;
+text-align: center;
+}
 
-// Serve static files with proper content types
-app.use(express.static(path.join(__dirname, 'public'), {
-setHeaders: (res, filePath) => {
-if (filePath.endsWith('.html')) {
-res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-} else if (filePath.endsWith('.css')) {
-res.setHeader('Content-Type', 'text/css');
-} else if (filePath.endsWith('.js')) {
-res.setHeader('Content-Type', 'application/javascript');
+.logo h1 {
+color: var(--blue);
+font-size: 2.5rem;
+margin-bottom: 5px;
+}
+
+.logo p {
+color: var(--text);
+font-size: 1.1rem;
+}
+
+.container {
+background-color: white;
+border-radius: 20px;
+box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+width: 100%;
+max-width: 800px;
+padding: 25px;
+margin-bottom: 20px;
+}
+
+h2 {
+text-align: center;
+color: var(--text);
+margin-bottom: 20px;
+font-size: 1.5rem;
+}
+
+.season-info {
+text-align: center;
+background-color: #e7f5ff;
+padding: 10px;
+border-radius: 10px;
+margin-bottom: 20px;
+}
+
+.season-countdown {
+font-weight: bold;
+color: var(--blue);
+}
+
+.tabs {
+display: flex;
+margin-bottom: 20px;
+border-bottom: 2px solid #e0e0e0;
+}
+
+.tab {
+padding: 10px 20px;
+cursor: pointer;
+font-weight: 700;
+position: relative;
+}
+
+.tab.active {
+color: var(--blue);
+}
+
+.tab.active:after {
+content: '';
+position: absolute;
+bottom: -2px;
+left: 0;
+width: 100%;
+height: 3px;
+background: var(--blue);
+}
+
+.user-stats {
+background-color: #f0f8ff;
+padding: 15px;
+border-radius: 10px;
+margin-bottom: 20px;
+display: flex;
+justify-content: space-between;
+align-items: center;
+}
+
+.user-rank {
+font-size: 1.5rem;
+font-weight: 800;
+color: var(--blue);
+}
+
+.user-details {
+text-align: right;
+}
+
+.stats-label {
+font-size: 0.9rem;
+color: #666;
+}
+
+.stats-value {
+font-weight: 700;
+font-size: 1.1rem;
+}
+
+.rank-badge {
+display: inline-block;
+padding: 3px 8px;
+border-radius: 12px;
+font-size: 0.8rem;
+font-weight: 700;
+margin-left: 5px;
+color: white;
+}
+
+.rank-badge.master {
+background-color: #ff9800;
+}
+
+.rank-badge.diamond {
+background-color: #00bcd4;
+}
+
+.rank-badge.platinum {
+background-color: #7e57c2;
+}
+
+.rank-badge.gold {
+background-color: #ffc107;
+}
+
+.rank-badge.silver {
+background-color: #9e9e9e;
+}
+
+.rank-badge.bronze {
+background-color: #8d6e63;
+}
+
+.rank-badge.beginner {
+background-color: #4caf50;
+}
+
+.leaderboard-table {
+width: 100%;
+border-collapse: collapse;
+}
+
+.leaderboard-table th {
+text-align: left;
+padding: 10px;
+border-bottom: 2px solid #e0e0e0;
+font-weight: 700;
+}
+
+.leaderboard-table td {
+padding: 12px 10px;
+border-bottom: 1px solid #e0e0e0;
+}
+
+.leaderboard-table tr:last-child td {
+border-bottom: none;
+}
+
+.leaderboard-table tr:nth-child(even) {
+background-color: #f9f9f9;
+}
+
+.leaderboard-table tr:hover {
+background-color: #f0f8ff;
+}
+
+.leaderboard-table .rank-number {
+font-weight: 800;
+width: 40px;
+}
+
+.top-rank {
+display: flex;
+align-items: center;
+justify-content: center;
+width: 30px;
+height: 30px;
+border-radius: 50%;
+font-weight: 800;
+color: white;
+}
+
+.rank-1 {
+background-color: var(--gold);
+}
+
+.rank-2 {
+background-color: var(--silver);
+}
+
+.rank-3 {
+background-color: var(--bronze);
+}
+
+.leaderboard-table .user-name {
+font-weight: 700;
+}
+
+.leaderboard-table .your-row {
+background-color: rgba(28, 176, 246, 0.1);
+font-weight: 700;
+}
+
+.action-buttons {
+display: flex;
+justify-content: space-between;
+margin-top: 20px;
+}
+
+.btn {
+background-color: var(--primary);
+color: white;
+padding: 12px 15px;
+border: none;
+border-radius: 12px;
+cursor: pointer;
+font-weight: 700;
+font-size: 1rem;
+transition: all 0.2s ease;
+font-family: 'Nunito', sans-serif;
+box-shadow: 0 4px 0 var(--primary-hover);
+flex: 1;
+margin: 0 10px;
+text-align: center;
+text-decoration: none;
+display: inline-block;
+}
+
+.btn:first-child {
+margin-left: 0;
+}
+
+.btn:last-child {
+margin-right: 0;
+}
+
+.btn:hover {
+background-color: var(--primary-hover);
+transform: translateY(-2px);
+}
+
+.btn:active {
+transform: translateY(2px);
+box-shadow: 0 0 0 var(--primary-hover);
+}
+
+.btn.blue {
+background-color: var(--blue);
+box-shadow: 0 4px 0 #0e90cf;
+}
+
+.btn.blue:hover {
+background-color: #0e90cf;
+}
+
+.btn.blue:active {
+box-shadow: 0 0 0 #0e90cf;
+}
+
+.not-logged-in {
+text-align: center;
+padding: 20px;
+}
+
+.not-logged-in h3 {
+margin-bottom: 15px;
+}
+
+@media (max-width: 600px) {
+.user-stats {
+flex-direction: column;
+text-align: center;
+}
+
+.user-details {
+text-align: center;
+margin-top: 10px;
+}
+
+.leaderboard-table .hide-mobile {
+display: none;
+}
+
+.btn {
+padding: 10px;
+font-size: 0.9rem;
 }
 }
-}));
-
-// Create PostgreSQL connection pool
-const pool = new Pool({
-connectionString: process.env.DATABASE_URL,
-ssl: process.env.NODE_ENV === 'production' ? {
-rejectUnauthorized: false // Required for Render PostgreSQL
-} : false // Disable SSL for local development
-});
-
-// Configure email transporter
-// Use environment variables for email configuration
-const transporter = nodemailer.createTransport({
-service: process.env.EMAIL_SERVICE || 'gmail', // Default to gmail, but can be configured
-auth: {
-user: process.env.EMAIL_USER || 'default@example.com', // Replace with your actual default
-pass: process.env.EMAIL_PASS || 'default_password' // Replace with your actual default
-},
-// Improve reliability with these settings
-tls: {
-rejectUnauthorized: false // Helps avoid certificate issues
-},
-// Timeouts to prevent hanging connections
-connectionTimeout: 10000, // 10 seconds
-greetingTimeout: 10000 // 10 seconds
-});
-
-// Function to send password reset email
-async function sendPasswordResetEmail(email, username, resetLink) {
-// Create email options
-const mailOptions = {
-from: `"Python Quiz" <${process.env.EMAIL_USER || 'default@example.com'}>`,
-to: email,
-subject: 'Password Reset for Python Quiz',
-html: `
-<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e5e5; border-radius: 10px;">
-<h2 style="color: #1cb0f6; text-align: center;">Python Quiz Password Reset</h2>
-<p>Hello ${username},</p>
-<p>We received a request to reset your password for your Python Quiz account. If you didn't make this request, you can ignore this email.</p>
-<p>To reset your password, please click the button below:</p>
-<div style="text-align: center; margin: 30px 0;">
-<a href="${resetLink}" style="background-color: #58cc02; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Reset Password</a>
+</style>
+</head>
+<body>
+<!-- Not logged in message -->
+<div id="not-logged-in" class="not-logged-in" style="display: none;">
+<h3>Please log in to view the leaderboard</h3>
+<a href="login.html" class="btn">Log In</a>
 </div>
-<p>If the button doesn't work, you can copy and paste this link into your browser:</p>
-<p style="word-break: break-all; background-color: #f5f5f5; padding: 10px; border-radius: 5px;">${resetLink}</p>
-<p>This link will expire in 1 hour for security reasons.</p>
-<p>Best regards,<br>The Python Quiz Team</p>
+
+<!-- Main Content - Only shown when logged in -->
+<div id="leaderboard-content" style="display: none;">
+<div class="logo">
+<h1>Python Quiz</h1>
+<p>Competitive Leaderboard</p>
 </div>
-`,
-text: `Hello ${username},\n\nWe received a request to reset your password for your Python Quiz account. If you didn't make this request, you can ignore this email.\n\nTo reset your password, please visit this link: ${resetLink}\n\nThis link will expire in 1 hour for security reasons.\n\nBest regards,\nThe Python Quiz Team`
-};
 
-// Send the email and handle errors properly
-try {
-console.log(`Attempting to send password reset email to ${email}...`);
-const info = await transporter.sendMail(mailOptions);
-console.log('Password reset email sent:', info.messageId);
-return { success: true, messageId: info.messageId };
-} catch (error) {
-console.error('Error sending password reset email:', error);
-// Also log the full error details for debugging
-console.error('Detailed error:', JSON.stringify(error, null, 2));
-return { success: false, error: error.message };
-}
-}
+<div class="container">
+<div class="season-info">
+<h3>Season <span id="season-number">1</span></h3>
+<p>Season ends in <span id="season-countdown" class="season-countdown">30 days</span></p>
+</div>
 
-// Test database connection
-pool.connect()
-.then(client => {
-console.log('Connected to PostgreSQL database');
-client.release();
+<div id="user-stats" class="user-stats">
+<div>
+<span class="user-rank">#<span id="user-position">--</span></span>
+<span id="username">Username</span>
+<span id="rank-badge" class="rank-badge beginner">Beginner</span>
+</div>
+<div class="user-details">
+<div>
+<span class="stats-label">Rank Points:</span>
+<span id="user-rank-points" class="stats-value">1000</span>
+</div>
+<div>
+<span class="stats-label">Win Rate:</span>
+<span id="user-win-rate" class="stats-value">0%</span>
+</div>
+</div>
+</div>
 
-// Create tables
-setupDatabase();
-})
-.catch(err => {
-console.error('Error connecting to database:', err);
-});
+<div class="tabs">
+<div class="tab active" data-tab="top">Top Players</div>
+<div class="tab" data-tab="history">Your History</div>
+</div>
 
-// Setup database tables
-async function setupDatabase() {
-const client = await pool.connect();
+<div id="top-players-tab" class="tab-content">
+<table class="leaderboard-table">
+<thead>
+<tr>
+<th>Rank</th>
+<th>Player</th>
+<th>Points</th>
+<th class="hide-mobile">Matches</th>
+<th>Win Rate</th>
+</tr>
+</thead>
+<tbody id="leaderboard-body">
+<!-- Leaderboard rows will be added here -->
+</tbody>
+</table>
+</div>
 
-try {
-await client.query('BEGIN');
+<div id="history-tab" class="tab-content" style="display: none;">
+<table class="leaderboard-table">
+<thead>
+<tr>
+<th>Date</th>
+<th>Result</th>
+<th>Old Rank</th>
+<th>New Rank</th>
+<th>Change</th>
+</tr>
+</thead>
+<tbody id="history-body">
+<!-- History rows will be added here -->
+</tbody>
+</table>
+</div>
 
-// Create users table
-await client.query(`
-CREATE TABLE IF NOT EXISTS users (
-id SERIAL PRIMARY KEY,
-username VARCHAR(50) NOT NULL UNIQUE,
-password VARCHAR(255) NOT NULL,
-email VARCHAR(100),
-created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-total_score INTEGER DEFAULT 0,
-hearts INTEGER DEFAULT 3,
-streak INTEGER DEFAULT 0,
-level INTEGER DEFAULT 1,
-xp INTEGER DEFAULT 0
-)
-`);
+<div class="action-buttons">
+<a href="quiz.html" class="btn">Back to Practice</a>
+<a href="#" id="play-ranked-btn" class="btn blue">Play Ranked Match</a>
+</div>
+</div>
+</div>
 
-// Create user_progress table
-await client.query(`
-CREATE TABLE IF NOT EXISTS user_progress (
-id SERIAL PRIMARY KEY,
-user_id INTEGER REFERENCES users(id),
-question_id VARCHAR(100) NOT NULL,
-correct BOOLEAN DEFAULT FALSE,
-attempts INTEGER DEFAULT 0,
-last_attempted TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-UNIQUE(user_id, question_id)
-)
-`);
+<script>
+// Get current user
+const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+const isLoggedIn = currentUser && currentUser.id;
 
-// Create password_reset_tokens table
-await client.query(`
-CREATE TABLE IF NOT EXISTS password_reset_tokens (
-id SERIAL PRIMARY KEY,
-user_id INTEGER REFERENCES users(id),
-token VARCHAR(255) NOT NULL UNIQUE,
-expires_at TIMESTAMP NOT NULL,
-created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)
-`);
-
-await client.query('COMMIT');
-console.log('Database tables created successfully');
-} catch (e) {
-await client.query('ROLLBACK');
-console.error('Error setting up database:', e);
-} finally {
-client.release();
-}
-}
-
-// API Routes
-// Login endpoint
-app.post('/api/login', async (req, res) => {
-const { username, password } = req.body;
-
-if (!username || !password) {
-return res.status(400).json({
-success: false,
-message: 'Username and password are required'
-});
-}
-
-try {
-// Query to find user
-const result = await pool.query(
-'SELECT * FROM users WHERE username = $1',
-[username]
-);
-
-// Check if user exists
-if (result.rows.length === 0) {
-return res.status(401).json({
-success: false,
-message: 'Invalid username or password'
-});
-}
-
-const user = result.rows[0];
-
-// Compare passwords
-const match = await bcrypt.compare(password, user.password);
-
-if (match) {
-// Password is correct
-return res.status(200).json({
-success: true,
-message: 'Login successful',
-user: {
-id: user.id,
-username: user.username,
-email: user.email,
-total_score: user.total_score,
-hearts: user.hearts,
-streak: user.streak,
-level: user.level,
-xp: user.xp
-}
-});
+// Display appropriate content based on login status
+document.addEventListener('DOMContentLoaded', function() {
+if (isLoggedIn) {
+document.getElementById('leaderboard-content').style.display = 'block';
+document.getElementById('not-logged-in').style.display = 'none';
+loadLeaderboard();
 } else {
-// Password is incorrect
-return res.status(401).json({
-success: false,
-message: 'Invalid username or password'
-});
-}
-} catch (error) {
-console.error('Database error:', error);
-return res.status(500).json({
-success: false,
-message: 'Server error, please try again'
-});
-}
-});
-
-// Register endpoint
-app.post('/api/register', async (req, res) => {
-const { username, password, email } = req.body;
-
-if (!username || !password) {
-return res.status(400).json({
-success: false,
-message: 'Username and password are required'
-});
+document.getElementById('leaderboard-content').style.display = 'none';
+document.getElementById('not-logged-in').style.display = 'block';
 }
 
+// Tab switching
+document.querySelectorAll('.tab').forEach(tab => {
+tab.addEventListener('click', function() {
+// Update active tab
+document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+this.classList.add('active');
+
+// Show corresponding content
+const tabName = this.getAttribute('data-tab');
+document.querySelectorAll('.tab-content').forEach(content => {
+content.style.display = 'none';
+});
+
+if (tabName === 'top') {
+document.getElementById('top-players-tab').style.display = 'block';
+} else if (tabName === 'history') {
+document.getElementById('history-tab').style.display = 'block';
+loadUserHistory();
+}
+});
+});
+
+// Play ranked button
+document.getElementById('play-ranked-btn').addEventListener('click', function(e) {
+e.preventDefault();
+localStorage.setItem('playRanked', 'true');
+window.location.href = 'quiz.html';
+});
+});
+
+// Load leaderboard data
+async function loadLeaderboard() {
 try {
-// Hash the password
-const hashedPassword = await bcrypt.hash(password, 10);
+const response = await fetch(`/api/leaderboard?userId=${currentUser.id}`);
+const data = await response.json();
 
-// Insert new user
-const result = await pool.query(
-'INSERT INTO users (username, password, email, total_score, hearts, streak, level, xp) VALUES ($1, $2, $3, 0, 3, 0, 1, 0) RETURNING id',
-[username, hashedPassword, email]
-);
-
-// Return success
-return res.status(201).json({
-success: true,
-message: 'Registration successful',
-userId: result.rows[0].id
-});
-} catch (error) {
-// Check for duplicate username
-if (error.code === '23505') { // PostgreSQL unique violation code
-return res.status(409).json({
-success: false,
-message: 'Username already exists'
-});
-}
-
-console.error('Database error:', error);
-return res.status(500).json({
-success: false,
-message: 'Server error, please try again'
-});
-}
-});
-
-// Request password reset
-app.post('/api/request-password-reset', async (req, res) => {
-const { email } = req.body;
-
-if (!email) {
-return res.status(400).json({
-success: false,
-message: 'Email is required'
-});
-}
-
-try {
-// Check if user exists
-const userResult = await pool.query(
-'SELECT id, username, email FROM users WHERE email = $1',
-[email]
-);
-
-if (userResult.rows.length === 0) {
-// For security reasons, don't tell the user that email doesn't exist
-// But log it server-side for debugging
-console.log(`Password reset requested for non-existent email: ${email}`);
-return res.status(200).json({
-success: true,
-message: 'If an account with that email exists, a password reset link has been sent.'
-});
-}
-
-const user = userResult.rows[0];
-
-// Generate a random token
-const token = crypto.randomBytes(32).toString('hex');
-
-// Set token expiration (1 hour from now)
-const expiresAt = new Date();
-expiresAt.setHours(expiresAt.getHours() + 1);
-
-// Delete any existing tokens for this user
-await pool.query(
-'DELETE FROM password_reset_tokens WHERE user_id = $1',
-[user.id]
-);
-
-// Store the new token
-await pool.query(
-'INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
-[user.id, token, expiresAt]
-);
-
-// Create reset link
-// Use RENDER_EXTERNAL_URL if available (for Render deployments)
-const baseUrl = process.env.RENDER_EXTERNAL_URL || `${req.protocol}://${req.get('host')}`;
-const resetLink = `${baseUrl}/reset-password.html?token=${token}`;
-
-// Always log the reset link for debugging
-console.log('Generated password reset link:', resetLink);
-
-// Send the reset email
-const emailResult = await sendPasswordResetEmail(user.email, user.username, resetLink);
-
-if (emailResult.success) {
-// Return success
-return res.status(200).json({
-success: true,
-message: 'Password reset link sent to your email'
-});
+if (data.success) {
+renderLeaderboard(data.leaderboard);
+renderUserStats(data.userRank);
+renderSeasonInfo(data.season);
 } else {
-// Log the error server-side but don't expose details to the client
-console.error('Failed to send email but token was created:', emailResult.error);
-// For security, still tell the client it succeeded
-return res.status(200).json({
-success: true,
-message: 'If an account with that email exists, a password reset link has been sent.'
-});
+console.error('Failed to load leaderboard:', data.message);
 }
 } catch (error) {
-console.error('Error requesting password reset:', error);
-return res.status(500).json({
-success: false,
-message: 'Server error, please try again'
-});
+console.error('Error loading leaderboard:', error);
 }
-});
-
-// Reset password with token
-app.post('/api/reset-password', async (req, res) => {
-const { token, password } = req.body;
-
-if (!token || !password) {
-return res.status(400).json({
-success: false,
-message: 'Token and password are required'
-});
 }
 
+// Load user history
+async function loadUserHistory() {
 try {
-// Find the token
-const tokenResult = await pool.query(
-'SELECT * FROM password_reset_tokens WHERE token = $1 AND expires_at > NOW()',
-[token]
-);
+const response = await fetch(`/api/rank-history/${currentUser.id}`);
+const data = await response.json();
 
-if (tokenResult.rows.length === 0) {
-return res.status(400).json({
-success: false,
-message: 'Invalid or expired reset token'
-});
-}
-
-const resetToken = tokenResult.rows[0];
-
-// Hash the new password
-const hashedPassword = await bcrypt.hash(password, 10);
-
-// Update the user's password
-await pool.query(
-'UPDATE users SET password = $1 WHERE id = $2',
-[hashedPassword, resetToken.user_id]
-);
-
-// Delete the used token
-await pool.query(
-'DELETE FROM password_reset_tokens WHERE id = $1',
-[resetToken.id]
-);
-
-// Return success
-return res.status(200).json({
-success: true,
-message: 'Password reset successful'
-});
-} catch (error) {
-console.error('Error resetting password:', error);
-return res.status(500).json({
-success: false,
-message: 'Server error, please try again'
-});
-}
-});
-
-// Update user progress
-app.post('/api/progress', async (req, res) => {
-const { userId, questionId, correct, score, hearts, streak, xp } = req.body;
-
-if (!userId || !questionId) {
-return res.status(400).json({
-success: false,
-message: 'User ID and question ID are required'
-});
-}
-
-try {
-// Begin transaction
-const client = await pool.connect();
-
-try {
-await client.query('BEGIN');
-
-// Update or insert progress record
-await client.query(
-`INSERT INTO user_progress (user_id, question_id, correct, attempts)
-VALUES ($1, $2, $3, 1)
-ON CONFLICT (user_id, question_id)
-DO UPDATE SET
-correct = $3,
-attempts = user_progress.attempts + 1,
-last_attempted = CURRENT_TIMESTAMP`,
-[userId, questionId, correct]
-);
-
-// Update user stats
-await client.query(
-`UPDATE users SET
-total_score = $1,
-hearts = $2,
-streak = $3,
-xp = $4
-WHERE id = $5`,
-[score, hearts, streak, xp, userId]
-);
-
-await client.query('COMMIT');
-
-res.status(200).json({
-success: true,
-message: 'Progress updated successfully'
-});
-} catch (e) {
-await client.query('ROLLBACK');
-throw e;
-} finally {
-client.release();
-}
-} catch (error) {
-console.error('Error updating progress:', error);
-res.status(500).json({
-success: false,
-message: 'Server error, please try again'
-});
-}
-});
-
-// Get user stats
-app.get('/api/user/:id', async (req, res) => {
-const userId = req.params.id;
-
-try {
-const result = await pool.query(
-'SELECT id, username, email, total_score, hearts, streak, level, xp FROM users WHERE id = $1',
-[userId]
-);
-
-if (result.rows.length === 0) {
-return res.status(404).json({
-success: false,
-message: 'User not found'
-});
-}
-
-res.status(200).json({
-success: true,
-user: result.rows[0]
-});
-} catch (error) {
-console.error('Error fetching user:', error);
-res.status(500).json({
-success: false,
-message: 'Server error, please try again'
-});
-}
-});
-
-// Status endpoint
-app.get('/api/status', (req, res) => {
-res.json({ status: 'ok', message: 'Server is running' });
-});
-
-// Debugging endpoint for password reset links
-app.get('/api/admin/reset-links', async (req, res) => {
-const adminToken = process.env.ADMIN_SECRET;
-const tokenFromRequest = req.headers.authorization?.split(' ')[1];
-
-// Verify admin token
-if (!adminToken || tokenFromRequest !== adminToken) {
-return res.status(403).json({
-success: false,
-message: 'Unauthorized access'
-});
-}
-
-try {
-// Get the last 5 reset tokens
-const result = await pool.query(
-`SELECT t.token, t.expires_at, u.username, u.email
-FROM password_reset_tokens t
-JOIN users u ON t.user_id = u.id
-ORDER BY t.created_at DESC
-LIMIT 5`
-);
-
-// Format the data
-const links = result.rows.map(row => {
-// Use Render's external URL if available, otherwise fall back to host
-const baseUrl = process.env.RENDER_EXTERNAL_URL || 'http://localhost:3000';
-const resetLink = `${baseUrl}/reset-password.html?token=${row.token}`;
-
-return {
-username: row.username,
-email: row.email,
-expiresAt: row.expires_at,
-resetLink
-};
-});
-
-// Log tokens to console for debugging
-console.log('Reset links:', JSON.stringify(links, null, 2));
-
-return res.status(200).json({
-success: true,
-links
-});
-} catch (error) {
-console.error('Error fetching reset links:', error);
-return res.status(500).json({
-success: false,
-message: 'Server error, please try again'
-});
-}
-});
-
-// Email test endpoint (for checking email configuration)
-app.get('/api/admin/test-email', async (req, res) => {
-// Only allow with admin authentication
-const adminToken = process.env.ADMIN_SECRET;
-const tokenFromRequest = req.headers.authorization?.split(' ')[1];
-
-if (!adminToken || tokenFromRequest !== adminToken) {
-return res.status(403).json({
-success: false,
-message: 'Unauthorized access'
-});
-}
-
-const testEmail = req.query.email;
-if (!testEmail) {
-return res.status(400).json({
-success: false,
-message: 'Email parameter is required'
-});
-}
-
-try {
-// Test email configuration
-const emailResult = await sendPasswordResetEmail(
-testEmail,
-'Test User',
-'https://example.com/test-reset-link'
-);
-
-if (emailResult.success) {
-return res.status(200).json({
-success: true,
-message: 'Test email sent successfully',
-messageId: emailResult.messageId
-});
+if (data.success) {
+renderUserHistory(data.history);
 } else {
-return res.status(500).json({
-success: false,
-message: 'Failed to send test email',
-error: emailResult.error
-});
+console.error('Failed to load rank history:', data.message);
 }
 } catch (error) {
-console.error('Error sending test email:', error);
-return res.status(500).json({
-success: false,
-message: 'Server error',
-error: error.message
-});
+console.error('Error loading rank history:', error);
+// Show placeholder or message if history isn't implemented yet
+document.getElementById('history-body').innerHTML = `
+<tr>
+<td colspan="5" style="text-align: center; padding: 20px;">
+No rank history available yet
+</td>
+</tr>
+`;
 }
-});
+}
 
-// Explicit route handlers for HTML files
-app.get('/', (req, res) => {
-res.set('Content-Type', 'text/html; charset=UTF-8');
-res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+// Render leaderboard table
+function renderLeaderboard(leaderboardData) {
+const tbody = document.getElementById('leaderboard-body');
+tbody.innerHTML = '';
 
-app.get('/register.html', (req, res) => {
-res.set('Content-Type', 'text/html; charset=UTF-8');
-res.sendFile(path.join(__dirname, 'public', 'register.html'));
-});
+if (leaderboardData.length === 0) {
+tbody.innerHTML = `
+<tr>
+<td colspan="5" style="text-align: center; padding: 20px;">
+No players on the leaderboard yet. Be the first to play ranked!
+</td>
+</tr>
+`;
+return;
+}
 
-app.get('/login.html', (req, res) => {
-res.set('Content-Type', 'text/html; charset=UTF-8');
-res.sendFile(path.join(__dirname, 'public', 'login.html'));
-});
+leaderboardData.forEach((player, index) => {
+const rank = index + 1;
+const isCurrentUser = player.id === currentUser.id;
 
-app.get('/quiz.html', (req, res) => {
-res.set('Content-Type', 'text/html; charset=UTF-8');
-res.sendFile(path.join(__dirname, 'public', 'quiz.html'));
-});
+const row = document.createElement('tr');
+if (isCurrentUser) {
+row.classList.add('your-row');
+}
 
-app.get('/forgot-password.html', (req, res) => {
-res.set('Content-Type', 'text/html; charset=UTF-8');
-res.sendFile(path.join(__dirname, 'public', 'forgot-password.html'));
-});
-
-app.get('/reset-password.html', (req, res) => {
-res.set('Content-Type', 'text/html; charset=UTF-8');
-res.sendFile(path.join(__dirname, 'public', 'reset-password.html'));
-});
-
-// Catch all route (keep this last)
-app.get('*', (req, res) => {
-// First check if the requested file exists in public
-const requestedPath = path.join(__dirname, 'public', req.path);
-
-if (fs.existsSync(requestedPath) && fs.statSync(requestedPath).isFile()) {
-res.sendFile(requestedPath);
+// Rank column with special formatting for top 3
+let rankDisplay;
+if (rank <= 3) {
+rankDisplay = `<div class="top-rank rank-${rank}">${rank}</div>`;
 } else {
-// Fall back to index.html
-res.set('Content-Type', 'text/html; charset=UTF-8');
-res.sendFile(path.join(__dirname, 'public', 'index.html'));
+rankDisplay = `<span class="rank-number">${rank}</span>`;
 }
-});
 
-// Start server
-app.listen(port, () => {
-console.log(`Server running on port ${port}`);
-console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-console.log(`Email configuration: ${process.env.EMAIL_USER ? 'Set' : 'Not set'}`);
+row.innerHTML = `
+<td>${rankDisplay}</td>
+<td class="user-name">${player.username}${isCurrentUser ? ' (You)' : ''}</td>
+<td>${player.rank}</td>
+<td class="hide-mobile">${player.ranked_matches}</td>
+<td>${player.win_rate}%</td>
+`;
+
+tbody.appendChild(row);
 });
+}
+
+// Render user stats
+function renderUserStats(userRank) {
+if (!userRank) {
+document.getElementById('user-position').textContent = '--';
+document.getElementById('username').textContent = currentUser.username || 'User';
+document.getElementById('user-rank-points').textContent = '1000';
+document.getElementById('user-win-rate').textContent = '0%';
+return;
+}
+
+document.getElementById('user-position').textContent = userRank.position || '--';
+document.getElementById('username').textContent = userRank.username;
+document.getElementById('user-rank-points').textContent = userRank.rank;
+document.getElementById('user-win-rate').textContent = `${userRank.win_rate}%`;
+
+// Set rank badge
+const rankBadge = document.getElementById('rank-badge');
+const rank = userRank.rank;
+
+if (rank >= 2500) {
+rankBadge.textContent = 'Master';
+rankBadge.className = 'rank-badge master';
+} else if (rank >= 2000) {
+rankBadge.textContent = 'Diamond';
+rankBadge.className = 'rank-badge diamond';
+} else if (rank >= 1500) {
+rankBadge.textContent = 'Platinum';
+rankBadge.className = 'rank-badge platinum';
+} else if (rank >= 1200) {
+rankBadge.textContent = 'Gold';
+rankBadge.className = 'rank-badge gold';
+} else if (rank >= 900) {
+rankBadge.textContent = 'Silver';
+rankBadge.className = 'rank-badge silver';
+} else if (rank >= 600) {
+rankBadge.textContent = 'Bronze';
+rankBadge.className = 'rank-badge bronze';
+} else {
+rankBadge.textContent = 'Beginner';
+rankBadge.className = 'rank-badge beginner';
+}
+}
+
+// Render season info
+function renderSeasonInfo(seasonData) {
+if (!seasonData) return;
+
+document.getElementById('season-number').textContent = seasonData.season;
+
+// Calculate days remaining
+const endDate = new Date(seasonData.season_end);
+const now = new Date();
+const daysRemaining = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
+
+document.getElementById('season-countdown').textContent = `${daysRemaining} days`;
+}
+
+// Render user history
+function renderUserHistory(historyData) {
+const tbody = document.getElementById('history-body');
+tbody.innerHTML = '';
+
+if (!historyData || historyData.length === 0) {
+tbody.innerHTML = `
+<tr>
+<td colspan="5" style="text-align: center; padding: 20px;">
+No match history yet. Play some ranked matches!
+</td>
+</tr>
+`;
+return;
+}
+
+historyData.forEach(entry => {
+const row = document.createElement('tr');
+const date = new Date(entry.created_at);
+const formattedDate = date.toLocaleString();
+const changeValue = entry.new_rank - entry.old_rank;
+
+row.innerHTML = `
+<td>${formattedDate}</td>
+<td style="color: ${entry.correct ? 'var(--correct)' : 'var(--wrong)'}">
+${entry.correct ? 'Win' : 'Loss'}
+</td>
+<td>${entry.old_rank}</td>
+<td>${entry.new_rank}</td>
+<td style="color: ${changeValue >= 0 ? 'var(--correct)' : 'var(--wrong)'}">
+${changeValue >= 0 ? '+' : ''}${changeValue}
+</td>
+`;
+
+tbody.appendChild(row);
+});
+}
+</script>
+</body>
+</html>
