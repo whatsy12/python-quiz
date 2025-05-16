@@ -149,11 +149,7 @@ total_score INTEGER DEFAULT 0,
 hearts INTEGER DEFAULT 3,
 streak INTEGER DEFAULT 0,
 level INTEGER DEFAULT 1,
-xp INTEGER DEFAULT 0,
-rank INTEGER DEFAULT 1000,
-ranked_matches INTEGER DEFAULT 0,
-ranked_wins INTEGER DEFAULT 0,
-ranked_losses INTEGER DEFAULT 0
+xp INTEGER DEFAULT 0
 )
 `);
 
@@ -180,50 +176,6 @@ expires_at TIMESTAMP NOT NULL,
 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )
 `);
-
-// Create leaderboard history table to track rank changes
-await client.query(`
-CREATE TABLE IF NOT EXISTS rank_history (
-id SERIAL PRIMARY KEY,
-user_id INTEGER REFERENCES users(id),
-old_rank INTEGER NOT NULL,
-new_rank INTEGER NOT NULL,
-question_id VARCHAR(100),
-correct BOOLEAN NOT NULL,
-created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)
-`);
-
-// Create ranked match settings table
-await client.query(`
-CREATE TABLE IF NOT EXISTS ranked_settings (
-id SERIAL PRIMARY KEY,
-questions_per_match INTEGER DEFAULT 10,
-rank_points_win INTEGER DEFAULT 20,
-rank_points_loss INTEGER DEFAULT 15,
-min_rank INTEGER DEFAULT 0,
-max_rank INTEGER DEFAULT 10000,
-season INTEGER DEFAULT 1,
-season_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-season_end TIMESTAMP DEFAULT CURRENT_TIMESTAMP + INTERVAL '90 days'
-)
-`);
-
-// Insert default ranked settings if not exists
-const settingsExist = await client.query(`SELECT id FROM ranked_settings LIMIT 1`);
-if (settingsExist.rows.length === 0) {
-await client.query(`
-INSERT INTO ranked_settings (
-questions_per_match, rank_points_win, rank_points_loss,
-min_rank, max_rank, season,
-season_start, season_end
-) VALUES (
-10, 20, 15,
-0, 10000, 1,
-CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '90 days'
-)
-`);
-}
 
 await client.query('COMMIT');
 console.log('Database tables created successfully');
@@ -280,11 +232,7 @@ total_score: user.total_score,
 hearts: user.hearts,
 streak: user.streak,
 level: user.level,
-xp: user.xp,
-rank: user.rank,
-ranked_matches: user.ranked_matches,
-ranked_wins: user.ranked_wins,
-ranked_losses: user.ranked_losses
+xp: user.xp
 }
 });
 } else {
@@ -555,7 +503,7 @@ const userId = req.params.id;
 
 try {
 const result = await pool.query(
-'SELECT id, username, email, total_score, hearts, streak, level, xp, rank, ranked_matches, ranked_wins, ranked_losses FROM users WHERE id = $1',
+'SELECT id, username, email, total_score, hearts, streak, level, xp FROM users WHERE id = $1',
 [userId]
 );
 
@@ -584,204 +532,107 @@ app.get('/api/status', (req, res) => {
 res.json({ status: 'ok', message: 'Server is running' });
 });
 
-// Get leaderboard data
-app.get('/api/leaderboard', async (req, res) => {
+// Debugging endpoint for password reset links
+app.get('/api/admin/reset-links', async (req, res) => {
+const adminToken = process.env.ADMIN_SECRET;
+const tokenFromRequest = req.headers.authorization?.split(' ')[1];
+
+// Verify admin token
+if (!adminToken || tokenFromRequest !== adminToken) {
+return res.status(403).json({
+success: false,
+message: 'Unauthorized access'
+});
+}
+
 try {
-// Get top 50 users by rank
-const result = await pool.query(`
-SELECT
-id, username, rank, ranked_matches, ranked_wins, ranked_losses,
-CASE
-WHEN ranked_matches > 0 THEN ROUND((ranked_wins::numeric / ranked_matches) * 100, 1)
-ELSE 0
-END as win_rate
-FROM users
-WHERE ranked_matches > 0
-ORDER BY rank DESC, win_rate DESC
-LIMIT 50
-`);
+// Get the last 5 reset tokens
+const result = await pool.query(
+`SELECT t.token, t.expires_at, u.username, u.email
+FROM password_reset_tokens t
+JOIN users u ON t.user_id = u.id
+ORDER BY t.created_at DESC
+LIMIT 5`
+);
 
-// Get current user's rank info if logged in
-let userRank = null;
-const userId = req.query.userId;
+// Format the data
+const links = result.rows.map(row => {
+// Use Render's external URL if available, otherwise fall back to host
+const baseUrl = process.env.RENDER_EXTERNAL_URL || 'http://localhost:3000';
+const resetLink = `${baseUrl}/reset-password.html?token=${row.token}`;
 
-if (userId) {
-const userResult = await pool.query(`
-SELECT
-id, username, rank, ranked_matches, ranked_wins, ranked_losses,
-CASE
-WHEN ranked_matches > 0 THEN ROUND((ranked_wins::numeric / ranked_matches) * 100, 1)
-ELSE 0
-END as win_rate,
-(SELECT COUNT(*) + 1 FROM users WHERE rank > u.rank AND ranked_matches > 0) as position
-FROM users u
-WHERE id = $1
-`, [userId]);
-
-if (userResult.rows.length > 0) {
-userRank = userResult.rows[0];
-}
-}
-
-// Get current season info
-const seasonResult = await pool.query(`
-SELECT season, season_start, season_end FROM ranked_settings LIMIT 1
-`);
-
-const seasonInfo = seasonResult.rows[0] || {
-season: 1,
-season_start: new Date(),
-season_end: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) // 90 days
+return {
+username: row.username,
+email: row.email,
+expiresAt: row.expires_at,
+resetLink
 };
+});
 
-res.status(200).json({
+// Log tokens to console for debugging
+console.log('Reset links:', JSON.stringify(links, null, 2));
+
+return res.status(200).json({
 success: true,
-leaderboard: result.rows,
-userRank,
-season: seasonInfo
+links
 });
 } catch (error) {
-console.error('Error fetching leaderboard:', error);
-res.status(500).json({
+console.error('Error fetching reset links:', error);
+return res.status(500).json({
 success: false,
 message: 'Server error, please try again'
 });
 }
 });
 
-// Get ranked mode settings
-app.get('/api/ranked-settings', async (req, res) => {
-try {
-const result = await pool.query(`
-SELECT * FROM ranked_settings LIMIT 1
-`);
+// Email test endpoint (for checking email configuration)
+app.get('/api/admin/test-email', async (req, res) => {
+// Only allow with admin authentication
+const adminToken = process.env.ADMIN_SECRET;
+const tokenFromRequest = req.headers.authorization?.split(' ')[1];
 
-res.status(200).json({
-success: true,
-settings: result.rows[0]
-});
-} catch (error) {
-console.error('Error fetching ranked settings:', error);
-res.status(500).json({
+if (!adminToken || tokenFromRequest !== adminToken) {
+return res.status(403).json({
 success: false,
-message: 'Server error, please try again'
+message: 'Unauthorized access'
 });
 }
-});
 
-// Submit ranked match result
-app.post('/api/ranked-result', async (req, res) => {
-const { userId, correct, questionId, matchCompleted } = req.body;
-
-if (!userId) {
+const testEmail = req.query.email;
+if (!testEmail) {
 return res.status(400).json({
 success: false,
-message: 'User ID is required'
+message: 'Email parameter is required'
 });
 }
 
 try {
-// Begin transaction
-const client = await pool.connect();
-
-try {
-await client.query('BEGIN');
-
-// Get current user rank
-const userResult = await client.query(
-'SELECT rank, ranked_matches, ranked_wins, ranked_losses FROM users WHERE id = $1',
-[userId]
+// Test email configuration
+const emailResult = await sendPasswordResetEmail(
+testEmail,
+'Test User',
+'https://example.com/test-reset-link'
 );
 
-if (userResult.rows.length === 0) {
-throw new Error('User not found');
-}
-
-const user = userResult.rows[0];
-
-// Get ranked settings
-const settingsResult = await client.query('SELECT * FROM ranked_settings LIMIT 1');
-const settings = settingsResult.rows[0];
-
-// Calculate new rank
-let newRank = user.rank;
-let rankChange = 0;
-
-if (correct) {
-// Win: increase rank
-rankChange = settings.rank_points_win;
-newRank = Math.min(settings.max_rank, user.rank + rankChange);
+if (emailResult.success) {
+return res.status(200).json({
+success: true,
+message: 'Test email sent successfully',
+messageId: emailResult.messageId
+});
 } else {
-// Loss: decrease rank
-rankChange = -settings.rank_points_loss;
-newRank = Math.max(settings.min_rank, user.rank + rankChange);
-}
-
-// Record rank history
-await client.query(
-`INSERT INTO rank_history (user_id, old_rank, new_rank, question_id, correct)
-VALUES ($1, $2, $3, $4, $5)`,
-[userId, user.rank, newRank, questionId, correct]
-);
-
-// Update user stats
-const ranked_matches = matchCompleted ? user.ranked_matches + 1 : user.ranked_matches;
-const ranked_wins = correct && matchCompleted ? user.ranked_wins + 1 : user.ranked_wins;
-const ranked_losses = !correct && matchCompleted ? user.ranked_losses + 1 : user.ranked_losses;
-
-await client.query(
-`UPDATE users
-SET rank = $1, ranked_matches = $2, ranked_wins = $3, ranked_losses = $4
-WHERE id = $5`,
-[newRank, ranked_matches, ranked_wins, ranked_losses, userId]
-);
-
-await client.query('COMMIT');
-
-res.status(200).json({
-success: true,
-oldRank: user.rank,
-newRank: newRank,
-rankChange: rankChange,
-message: correct ? 'Rank increased!' : 'Rank decreased'
+return res.status(500).json({
+success: false,
+message: 'Failed to send test email',
+error: emailResult.error
 });
-} catch (e) {
-await client.query('ROLLBACK');
-throw e;
-} finally {
-client.release();
 }
 } catch (error) {
-console.error('Error updating rank:', error);
-res.status(500).json({
+console.error('Error sending test email:', error);
+return res.status(500).json({
 success: false,
-message: 'Server error, please try again'
-});
-}
-});
-
-// Get user rank history
-app.get('/api/rank-history/:userId', async (req, res) => {
-const userId = req.params.userId;
-
-try {
-const result = await pool.query(
-`SELECT * FROM rank_history
-WHERE user_id = $1
-ORDER BY created_at DESC
-LIMIT 50`,
-[userId]
-);
-
-res.status(200).json({
-success: true,
-history: result.rows
-});
-} catch (error) {
-console.error('Error fetching rank history:', error);
-res.status(500).json({
-success: false,
-message: 'Server error, please try again'
+message: 'Server error',
+error: error.message
 });
 }
 });
@@ -815,11 +666,6 @@ res.sendFile(path.join(__dirname, 'public', 'forgot-password.html'));
 app.get('/reset-password.html', (req, res) => {
 res.set('Content-Type', 'text/html; charset=UTF-8');
 res.sendFile(path.join(__dirname, 'public', 'reset-password.html'));
-});
-
-app.get('/leaderboard.html', (req, res) => {
-res.set('Content-Type', 'text/html; charset=UTF-8');
-res.sendFile(path.join(__dirname, 'public', 'leaderboard.html'));
 });
 
 // Catch all route (keep this last)
