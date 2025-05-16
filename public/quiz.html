@@ -5,7 +5,6 @@
 <div class="tab" data-mode="ranked">Competitive Ranked</div>
 </div>
 
-<!-- Add this after the levels-panel div -->
 <div id="ranked-panel" class="hidden">
 <div class="ranked-header">
 <h3>Competitive Ranked Mode</h3>
@@ -54,7 +53,7 @@
 </div>
 </div>
 
-<!-- Add this style to the head of quiz.html -->
+<!-- 3. ADD THESE STYLES TO YOUR STYLE SECTION: -->
 <style>
 /* Ranked Mode Styles */
 .ranked-header {
@@ -192,7 +191,7 @@ margin-top: 15px;
 }
 </style>
 
-<!-- Add this script at the end of the file (before closing body tag) -->
+<!-- 4. ADD THIS JAVASCRIPT RIGHT BEFORE THE CLOSING </body> TAG: -->
 <script>
 // Ranked Mode Implementation
 let rankedSettings = null;
@@ -586,18 +585,18 @@ loadQuestion();
 }
 };
 
-// Modified initialization
+// Add this to your document ready function
 document.addEventListener('DOMContentLoaded', () => {
+// Add your original initialization code
 checkLoginStatus();
 initTopicSelection();
 initLevelSelection();
 updateSelectionSummary();
+
+// Add ranked mode functionality
 checkForRankedPlay();
 
-// Add ranked mode button event listener
-document.querySelector('.start-ranked-btn').addEventListener('click', startRankedMatch);
-
-// Add tab event listeners
+// Add ranked mode event listeners
 document.querySelectorAll('.tab').forEach(tab => {
 if (tab.dataset.mode && !tab.hasEventListener) {
 tab.addEventListener('click', () => {
@@ -607,7 +606,10 @@ tab.hasEventListener = true;
 }
 });
 
-// Load ranked stats if available
+// Add ranked mode button event listener
+document.querySelector('.start-ranked-btn').addEventListener('click', startRankedMatch);
+
+// Load ranked stats
 loadRankedStats();
 });
 </script>
