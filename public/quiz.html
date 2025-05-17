@@ -2856,19 +2856,20 @@ if (data.success) {
 // Update stored user rank
 userRankPoints = newTotalPoints;
 
-// If rank changed, show notification
-const previousRank = getRankByPoints(userRankPoints - score);
-const newRank = getRankByPoints(userRankPoints);
+// Update localStorage
+currentUser.rank_points = newTotalPoints;
+localStorage.setItem('user', JSON.stringify(currentUser));
 
-if (newRank.name !== previousRank.name) {
-showNotification(`Congratulations! You've reached ${newRank.name} rank!`, 'levelup');
-}
+console.log('Ranked score saved successfully');
+} else {
+console.error('Failed to save ranked score:', data.message);
 }
 })
 .catch(error => {
 console.error('Error submitting ranked results:', error);
 });
 }
+
 
 // Return to ranked panel from results
 document.getElementById('back-to-ranked-btn').addEventListener('click', () => {
