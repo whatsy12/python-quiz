@@ -2479,7 +2479,7 @@ return response.json();
 })
 .then(data => {
 if (data.success) {
-userRankPoints = data.rankPoints || 0;
+userRankPoints = data.rankPoints;
 console.log('Fetched user rank points:', userRankPoints);
 updateUserRankDisplay(userRankPoints);
 } else {
