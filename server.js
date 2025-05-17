@@ -2108,6 +2108,3 @@ initTopicSelection();
 initLevelSelection();
 updateSelectionSummary();
 });
-</script>
-</body>
-</html>
