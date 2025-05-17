@@ -2501,7 +2501,7 @@ const rankBadge = document.getElementById('user-rank-badge');
 const rankPoints = document.getElementById('rank-points');
 
 // Ensure points is a number
-points = Number(points) || 0;
+points = Number(points);
 
 // Determine user's rank based on points
 let currentRank = ranks[0]; // Default to lowest rank
