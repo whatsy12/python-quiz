@@ -717,7 +717,6 @@ message: 'Server error, please try again'
 });
 }
 });
-
 // Get leaderboard - FIXED
 app.get('/api/leaderboard', async (req, res) => {
 console.log('Fetching leaderboard data');
@@ -746,6 +745,69 @@ console.error('Database error when fetching leaderboard:', error);
 res.status(500).json({
 success: false,
 message: 'Server error, please try again'
+});
+}
+});
+
+async function fixRankDatabase() {
+console.log('Checking and fixing rank points in database...');
+const client = await pool.connect();
+
+try {
+// Update any NULL rank_points to 0
+const result = await client.query(
+'UPDATE users SET rank_points = 0 WHERE rank_points IS NULL RETURNING id, username'
+);
+
+if (result.rows.length > 0) {
+console.log(`Fixed rank_points for ${result.rows.length} users`);
+result.rows.forEach(user => {
+console.log(`- Fixed user ${user.username} (ID: ${user.id})`);
+});
+} else {
+console.log('No users with NULL rank_points found');
+}
+} catch (error) {
+console.error('Error fixing rank database:', error);
+} finally {
+client.release();
+}
+}
+
+app.get('/api/admin/set-rank/:userId/:points', async (req, res) => {
+const { userId, points } = req.params;
+
+// Convert points to a number and validate
+const rankPoints = parseInt(points, 10);
+if (isNaN(rankPoints)) {
+return res.status(400).json({
+success: false,
+message: 'Points must be a valid number'
+});
+}
+
+try {
+const result = await pool.query(
+'UPDATE users SET rank_points = $1 WHERE id = $2 RETURNING username',
+[rankPoints, userId]
+);
+
+if (result.rows.length === 0) {
+return res.status(404).json({
+success: false,
+message: 'User not found'
+});
+}
+
+return res.status(200).json({
+success: true,
+message: `Rank points for ${result.rows[0].username} set to ${rankPoints}`
+});
+} catch (error) {
+console.error('Error setting rank:', error);
+return res.status(500).json({
+success: false,
+message: 'Server error'
 });
 }
 });
