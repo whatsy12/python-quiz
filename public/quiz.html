@@ -777,6 +777,158 @@ font-weight: 800;
 margin: 0 10px;
 color: #666;
 }
+
+/* Improved Test UI Styles */
+#ranked-test-container {
+background: white;
+padding: 25px;
+border-radius: 20px;
+box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+width: 800px;
+max-width: 100%;
+position: relative;
+margin-bottom: 20px;
+}
+
+.ranked-test-header {
+background: #f0f8ff;
+margin: -25px -25px 20px -25px;
+padding: 15px 25px;
+border-radius: 20px 20px 0 0;
+border-bottom: 2px solid #e0e0ff;
+}
+
+.ranked-test-progress {
+height: 8px;
+background: var(--neutral);
+border-radius: 4px;
+margin: 10px 0;
+overflow: hidden;
+}
+
+.ranked-test-progress-bar {
+height: 100%;
+background: var(--blue);
+width: 0%;
+transition: width 0.5s ease;
+border-radius: 4px;
+}
+
+.difficulty-badge {
+font-size: 0.9rem;
+padding: 4px 10px;
+margin-bottom: 8px;
+}
+
+#ranked-options {
+display: grid;
+grid-gap: 12px;
+margin: 20px 0;
+}
+
+#ranked-options .option {
+padding: 15px;
+font-size: 1.1rem;
+}
+
+.option.correct {
+transform: translateY(-2px);
+transition: all 0.3s ease;
+}
+
+.option.incorrect {
+transform: translateY(-2px);
+transition: all 0.3s ease;
+}
+
+.ranked-controls {
+display: flex;
+justify-content: space-between;
+margin-top: 20px;
+}
+
+#ranked-next-btn {
+background: var(--blue);
+box-shadow: 0 4px 0 #0b91d3;
+padding: 15px 25px;
+font-size: 1.1rem;
+}
+
+#ranked-next-btn:hover {
+background: #0b91d3;
+}
+
+/* Results screen improvements */
+#ranked-results {
+background: white;
+padding: 30px;
+border-radius: 20px;
+box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+width: 800px;
+max-width: 100%;
+position: relative;
+margin-bottom: 20px;
+}
+
+#ranked-results h2 {
+color: var(--blue);
+font-size: 1.8rem;
+margin-bottom: 25px;
+}
+
+.results-summary {
+gap: 20px;
+}
+
+.result-score, .result-accuracy {
+padding: 20px;
+border-radius: 15px;
+box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+transition: transform 0.3s ease;
+}
+
+.result-score:hover, .result-accuracy:hover {
+transform: translateY(-5px);
+}
+
+.result-value {
+font-size: 2.2rem;
+}
+
+.rank-change {
+margin: 30px 0;
+padding: 25px;
+border-radius: 15px;
+background: linear-gradient(to right, #f9f9f9, #f0f8ff);
+}
+
+.rank-change-display {
+font-size: 1.5rem;
+margin-top: 10px;
+}
+
+.rank-arrow {
+display: inline-block;
+margin: 0 15px;
+font-size: 1.8rem;
+color: #999;
+animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+0% { transform: scale(1); }
+50% { transform: scale(1.1); }
+100% { transform: scale(1); }
+}
+
+.info-box {
+background-color: #e7f5ff;
+padding: 15px;
+border-radius: 10px;
+margin-bottom: 20px;
+font-size: 0.95rem;
+line-height: 1.5;
+}
 </style>
 </head>
 <body>
@@ -914,6 +1066,10 @@ Select topics or levels to practice
 <div class="ranked-test-score">
 Score: <span id="ranked-current-score">0</span>
 </div>
+</div>
+
+<div class="ranked-test-progress">
+<div class="ranked-test-progress-bar" id="ranked-progress-bar"></div>
 </div>
 
 <div id="ranked-question-area">
@@ -2310,16 +2466,32 @@ window.location.href = '/login.html';
 function fetchUserRank() {
 if (!currentUser) return;
 
+// Show loading state
+const rankBadge = document.getElementById('user-rank-badge');
+rankBadge.textContent = 'Loading...';
+
 fetch(`/api/rank/${currentUser.id}`)
-.then(response => response.json())
+.then(response => {
+if (!response.ok) {
+throw new Error(`HTTP error! Status: ${response.status}`);
+}
+return response.json();
+})
 .then(data => {
 if (data.success) {
 userRankPoints = data.rankPoints || 0;
+console.log('Fetched user rank points:', userRankPoints);
 updateUserRankDisplay(userRankPoints);
+} else {
+console.error('Error in rank response:', data.message);
+// Fall back to default rank display
+updateUserRankDisplay(0);
 }
 })
 .catch(error => {
 console.error('Error fetching user rank:', error);
+// Fall back to default rank display in case of errors
+updateUserRankDisplay(0);
 });
 }
 
@@ -2327,6 +2499,9 @@ console.error('Error fetching user rank:', error);
 function updateUserRankDisplay(points) {
 const rankBadge = document.getElementById('user-rank-badge');
 const rankPoints = document.getElementById('rank-points');
+
+// Ensure points is a number
+points = Number(points) || 0;
 
 // Determine user's rank based on points
 let currentRank = ranks[0]; // Default to lowest rank
@@ -2344,6 +2519,9 @@ userRank = currentRank.name;
 rankBadge.textContent = currentRank.name;
 rankBadge.className = 'rank-badge ' + currentRank.color;
 rankPoints.textContent = points + ' points';
+
+// Debug log to verify the rank is being set correctly
+console.log(`User rank updated: ${currentRank.name} (${points} points)`);
 }
 
 // Fetch leaderboard data from server
@@ -2352,12 +2530,19 @@ const leaderboardList = document.getElementById('leaderboard-list');
 leaderboardList.innerHTML = '<div class="loading-spinner">Loading...</div>';
 
 fetch('/api/leaderboard')
-.then(response => response.json())
+.then(response => {
+if (!response.ok) {
+throw new Error(`HTTP error! Status: ${response.status}`);
+}
+return response.json();
+})
 .then(data => {
 if (data.success) {
+console.log('Leaderboard data received:', data);
 displayLeaderboard(data.leaderboard);
 } else {
-leaderboardList.innerHTML = 'Failed to load leaderboard.';
+console.error('Error in leaderboard response:', data.message);
+leaderboardList.innerHTML = 'Failed to load leaderboard: ' + data.message;
 }
 })
 .catch(error => {
@@ -2371,13 +2556,18 @@ function displayLeaderboard(leaderboard) {
 const leaderboardList = document.getElementById('leaderboard-list');
 leaderboardList.innerHTML = '';
 
-if (leaderboard.length === 0) {
+if (!leaderboard || leaderboard.length === 0) {
 leaderboardList.innerHTML = '<div class="loading-spinner">No ranked data available yet.</div>';
 return;
 }
 
+// Debug log to check leaderboard data
+console.log('Leaderboard data:', leaderboard);
+
 leaderboard.forEach((user, index) => {
-const userRank = getRankByPoints(user.rank_points);
+// Make sure rank_points exists and is a number
+const rankPoints = Number(user.rank_points) || 0;
+const userRank = getRankByPoints(rankPoints);
 
 const item = document.createElement('div');
 item.className = 'leaderboard-item';
@@ -2391,7 +2581,7 @@ item.style.fontWeight = '600';
 item.innerHTML = `
 <div class="leaderboard-rank">${index + 1}</div>
 <div class="leaderboard-username">${user.username}</div>
-<div class="leaderboard-score">${user.rank_points}</div>
+<div class="leaderboard-score">${rankPoints}</div>
 <div class="leaderboard-user-rank ${userRank.color}" style="background-color: #333;">${userRank.name}</div>
 `;
 
@@ -2401,6 +2591,9 @@ leaderboardList.appendChild(item);
 
 // Get rank object by points
 function getRankByPoints(points) {
+// Ensure points is a number
+points = Number(points) || 0;
+
 for (let i = ranks.length - 1; i >= 0; i--) {
 if (points >= ranks[i].threshold) {
 return ranks[i];
@@ -2422,6 +2615,7 @@ currentRankedQuestion = 0;
 rankedScore = 0;
 correctAnswers = 0;
 currentDifficulty = "Medium"; // Start with medium difficulty
+questionAnswered = false;
 
 // Load adaptive questions
 loadAdaptiveQuestions();
@@ -2514,6 +2708,10 @@ counterEl.textContent = `Question ${currentRankedQuestion + 1} of ${rankedQuesti
 difficultyEl.textContent = question.difficulty ? question.difficulty.charAt(0).toUpperCase() + question.difficulty.slice(1) : 'Medium';
 difficultyEl.className = 'difficulty-badge difficulty-' + (question.difficulty || 'medium');
 
+// Update progress bar
+const progressPercent = (currentRankedQuestion / rankedQuestionCount) * 100;
+document.getElementById('ranked-progress-bar').style.width = `${progressPercent}%`;
+
 // Clear previous options
 optionsEl.innerHTML = '';
 
@@ -2583,17 +2781,24 @@ optionsEl.appendChild(btn);
 questionAnswered = false;
 }
 
-// Move to the next ranked question
-document.getElementById('ranked-next-btn').addEventListener('click', () => {
-if (!questionAnswered && currentRankedQuestion < rankedQuestions.length) {
-// If not answered, show warning
-showNotification('Please select an answer before continuing', 'leveldown');
+// Animate counter for results display
+function animateCounter(element, start, end, duration, suffix = '') {
+const startTime = performance.now();
+
+function updateCounter(currentTime) {
+const elapsedTime = currentTime - startTime;
+if (elapsedTime > duration) {
+element.textContent = end + suffix;
 return;
 }
 
-currentRankedQuestion++;
-loadRankedQuestion();
-});
+const value = Math.round(start + (end - start) * (elapsedTime / duration));
+element.textContent = value + suffix;
+requestAnimationFrame(updateCounter);
+}
+
+requestAnimationFrame(updateCounter);
+}
 
 // Finish the ranked test and show results
 function finishRankedTest() {
@@ -2607,8 +2812,14 @@ rankedResultsContainer.classList.remove('hidden');
 const accuracy = Math.round((correctAnswers / rankedQuestionCount) * 100);
 
 // Update results UI
-document.getElementById('ranked-final-score').textContent = rankedScore;
-document.getElementById('ranked-accuracy').textContent = accuracy + '%';
+const finalScoreEl = document.getElementById('ranked-final-score');
+const accuracyEl = document.getElementById('ranked-accuracy');
+finalScoreEl.textContent = rankedScore;
+accuracyEl.textContent = accuracy + '%';
+
+// Animate the counters
+animateCounter(finalScoreEl, 0, rankedScore, 1500);
+animateCounter(accuracyEl, 0, accuracy, 1500, '%');
 
 // Previous rank
 const previousRank = getRankByPoints(userRankPoints);
@@ -2667,6 +2878,19 @@ document.getElementById('back-to-ranked-btn').addEventListener('click', () => {
 rankedResultsContainer.classList.add('hidden');
 selectionScreen.classList.remove('hidden');
 switchMode('ranked'); // Refresh ranked panel and leaderboard
+});
+
+// Move to the next ranked question
+document.getElementById('ranked-next-btn').addEventListener('click', () => {
+if (!questionAnswered && currentRankedQuestion < rankedQuestions.length) {
+// If not answered, show warning
+showNotification('Please select an answer before continuing', 'leveldown');
+return;
+}
+
+currentRankedQuestion++;
+questionAnswered = false;
+loadRankedQuestion();
 });
 
 // Event Listeners
