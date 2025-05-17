@@ -776,10 +776,10 @@ message: 'Server error, please try again'
 
 // Submit ranked test results
 app.post('/api/submit-ranked', async (req, res) => {
-const { userId, score, accuracy, totalPoints } = req.body;
+const { userId, score, accuracy, totalPoints } = res.body;
 
 if (!userId) {
-return res.status(400).json({
+return req.status(400).json({
 success: false,
 message: 'User ID is required'
 });
