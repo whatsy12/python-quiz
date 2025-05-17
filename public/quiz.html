@@ -2529,14 +2529,12 @@ function fetchLeaderboard() {
 const leaderboardList = document.getElementById('leaderboard-list');
 leaderboardList.innerHTML = '<div class="loading-spinner">Loading...</div>';
 
-fetch('/api/leaderboard')
-.then(response => {
+fetch('/api/leaderboard').then(response => {
 if (!response.ok) {
 throw new Error(`HTTP error! Status: ${response.status}`);
 }
 return response.json();
-})
-.then(data => {
+}).then(data => {
 if (data.success) {
 console.log('Leaderboard data received:', data);
 displayLeaderboard(data.leaderboard);
@@ -2544,8 +2542,7 @@ displayLeaderboard(data.leaderboard);
 console.error('Error in leaderboard response:', data.message);
 leaderboardList.innerHTML = 'Failed to load leaderboard: ' + data.message;
 }
-})
-.catch(error => {
+}).catch(error => {
 console.error('Error fetching leaderboard:', error);
 leaderboardList.innerHTML = 'Failed to load leaderboard. Please try again.';
 });
